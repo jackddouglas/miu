@@ -10,42 +10,47 @@ import (
 	"time"
 )
 
-var (
-//proxies = []string{"socks5://104.236.26.27:38801", "socks5://104.248.63.49:30588", "socks5://104.238.111.150:46470", "socks5://104.238.97.215:15181", "socks5://104.248.63.18:30588", "socks5://167.99.230.114:5577", "socks5://159.89.49.60:31264", "socks5://174.77.111.196:4145", "socks5://174.70.241.17:4145", "socks5://132.148.159.44:13271", "socks5://173.248.156.214:29765", "socks5://174.70.241.18:24404", "socks5://184.168.146.10:1158", "socks5://184.178.172.18:15280", "socks5://184.185.2.12:4145", "socks5://184.185.2.244:4145", "socks5://192.111.129.148:4145", "socks5://184.176.166.13:4145", "socks5://184.178.172.5:15303", "socks5://184.178.172.13:15311", "socks5://47.49.12.169:46451", "socks5://64.118.88.52:9416", "socks5://72.221.164.35:60670", "socks5://47.49.12.165:17326", "socks5://47.49.12.168:24119", "socks5://64.118.87.5:14732", "socks5://47.89.249.147:58629", "socks5://50.62.31.62:20636", "socks5://174.70.241.10:4145", "socks5://167.71.119.18:9050", "socks5://174.77.111.197:4145", "socks5://174.76.48.233:4145", "socks5://174.64.199.82:4145", "socks5://174.70.241.8:24398", "socks5://184.176.166.20:4145"}
-)
-
 func main() {
-	movieLink, err := GetMovieLink("https://reelgood.com/search?q=simpsons")
+	movieLink, err := GetMovieLink("https://reelgood.com/search?q=limitless")
 	if err != nil {
 		log.Println(err)
 	}
 
-	isOnNetflix, isOnPrime, isOnHulu, isOnDisney, err := GetStreamingDetails("https://reelgood.com" + movieLink)
+	title, description, isOnNetflix, isOnPrime, isOnHulu, isOnDisney, err := GetStreamingDetails("https://reelgood.com" + movieLink)
 	if err != nil {
 		log.Println(err)
 	}
 
-	fmt.Println("Movie Link:")
-	fmt.Println(movieLink)
+	moviePrice, err := GetAmazonPrice("https://www.amazon.com/s?k=" + title + "&i=movies-tv")
 
-	fmt.Println("\nOn Netflix?")
-	fmt.Println(isOnNetflix)
+	fmt.Println(moviePrice)
 
-	fmt.Println("\nOn Prime?")
-	fmt.Println(isOnPrime)
+	fmt.Println(title)
+	fmt.Println("\n" + description)
 
-	fmt.Println("\nOn Hulu?")
-	fmt.Println(isOnHulu)
+	fmt.Println("\nWhere to get it:")
 
-	fmt.Println("\nOn Disney?")
-	fmt.Println(isOnDisney)
+	if isOnNetflix {
+		fmt.Println(Pad("Netflix", "subscription"))
+	}
+
+	if isOnPrime {
+		fmt.Println(Pad("Prime Video", "subscription"))
+	}
+
+	if isOnHulu {
+		fmt.Println(Pad("Hulu", "subscription"))
+	}
+
+	if isOnDisney {
+		fmt.Println(Pad("Disney+", "subscription"))
+	}
 }
 
 // GetMovieLink gets the href to details page for entered movie/show
 func GetMovieLink(url string) (string, error) {
 	rand.Seed(time.Now().UnixNano())
 
-	//proxyURL, _ := url2.Parse(proxies[rand.Intn(len(proxies))])
 	proxyURL, _ := url2.Parse("socks5://ujigjgxi-US-rotate:8oihb177hbmn@185.30.232.51:1080")
 	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
 
@@ -72,7 +77,7 @@ func GetMovieLink(url string) (string, error) {
 }
 
 // GetStreamingDetails scrapes streaming data from details page for movie/show
-func GetStreamingDetails(url string) (bool, bool, bool, bool, error) {
+func GetStreamingDetails(url string) (string, string, bool, bool, bool, bool, error) {
 	rand.Seed(time.Now().UnixNano())
 
 	proxyURL, _ := url2.Parse("socks5://ujigjgxi-US-rotate:8oihb177hbmn@185.30.232.51:1080")
@@ -80,13 +85,23 @@ func GetStreamingDetails(url string) (bool, bool, bool, bool, error) {
 
 	res, err := client.Get(url)
 	if err != nil {
-		return false, false, false, false, err
+		return "Error", "Error", false, false, false, false, err
 	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return false, false, false, false, err
+		return "Error", "Error", false, false, false, false, err
 	}
+
+	var title string
+	doc.Find(".e14injhv7").Each(func(i int, s *goquery.Selection) {
+		title = s.Text()
+	})
+
+	var description string
+	doc.Find(".e50tfam1 p").Each(func(i int, s *goquery.Selection) {
+		description = s.Text()
+	})
 
 	var isOnNetflix bool
 	var isOnHulu bool
@@ -115,5 +130,53 @@ func GetStreamingDetails(url string) (bool, bool, bool, bool, error) {
 		}
 	})
 
-	return isOnNetflix, isOnPrime, isOnHulu, isOnDisney, err
+	return title, description, isOnNetflix, isOnPrime, isOnHulu, isOnDisney, err
+}
+
+// GetAmazonPrice finds the price of the movie/show and returns it
+func GetAmazonPrice(url string) (string, error) {
+	rand.Seed(time.Now().UnixNano())
+
+	proxyURL, _ := url2.Parse("socks5://ujigjgxi-US-rotate:8oihb177hbmn@185.30.232.51:1080")
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "Error", err
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:10.0) Gecko/20100101 Firefox/10.0")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "Error", err
+	}
+
+	if res.StatusCode > 500 {
+		fmt.Println("So uh, there was a problem. We got blocked.")
+	}
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return "Error", err
+	}
+
+	//fmt.Println(doc.Contents().Text())
+
+	var prices []string
+	doc.Find(".a-offscreen").Each(func(i int, s *goquery.Selection) {
+		prices = append(prices, s.Text())
+		fmt.Println(s.Text())
+	})
+
+	return prices[1], err
+}
+
+// Pad adds padding functionality to formatted lines
+func Pad(left string, right string) string {
+	for len(left + right) < 125 {
+		left += " • "
+	}
+
+	return left + right
 }
