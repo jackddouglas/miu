@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
 	"log"
 	"math/rand"
 	"net/http"
 	url2 "net/url"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 func main() {
@@ -174,7 +175,7 @@ func GetAmazonPrice(url string) (string, error) {
 
 // Pad adds padding functionality to formatted lines
 func Pad(left string, right string) string {
-	for len(left + right) < 125 {
+	for len(left+right) < 125 {
 		left += " • "
 	}
 
